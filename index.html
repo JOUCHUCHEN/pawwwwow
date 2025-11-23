@@ -33,6 +33,8 @@
             box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
             touch-action: manipulation; /* 禁用瀏覽器觸摸操作，提高遊戲響應 */
             display: block;
+            /* 讓畫布在 game-view 中置中 */
+            margin: 0 auto; 
             max-width: 100%;
         }
         .btn {
@@ -156,9 +158,31 @@
             0% { box-shadow: 0 0 0 0 rgba(246, 173, 85, 0.7); }
             100% { box-shadow: 0 0 0 15px rgba(246, 173, 85, 0); }
         }
+        
+        /* ---------------------------------------------------- */
+        /* 設備旋轉提示 (Orientation Warning) - 僅在手機/平板直向時顯示 */
+        /* ---------------------------------------------------- */
+        @media screen and (max-width: 768px) and (orientation: portrait) {
+            #orientation-warning {
+                display: flex !important;
+            }
+            /* 隱藏其他內容，強制用戶旋轉 */
+            #game-container {
+                visibility: hidden;
+            }
+        }
     </style>
 </head>
 <body>
+
+    <!-- Orientation Warning Overlay (for mobile/tablet portrait) -->
+    <div id="orientation-warning" class="fixed inset-0 z-50 bg-gray-900 flex items-center justify-center p-8 text-white text-center hidden">
+        <div class="bg-red-600 p-8 rounded-xl shadow-2xl">
+            <h2 class="text-3xl font-bold mb-4">請旋轉您的設備 🔄</h2>
+            <p class="text-xl">此遊戲在橫向模式 (Landscape) 下提供最佳體驗。</p>
+            <p class="text-lg mt-2">請將手機或平板電腦橫置。</p>
+        </div>
+    </div>
 
     <div id="game-container">
         <!-- 遊戲主標題 -->
@@ -529,6 +553,7 @@
             // 隱藏頂部廣告
             document.getElementById('ad-banner-top').classList.add('hidden');
 
+            // 調整畫布大小並初始化
             resizeCanvas(); 
             initLevel(currentLevel.config);
             gameLoop();
@@ -732,35 +757,67 @@
             showMenu(); // 顯示地圖
         }
 
+        // 調整畫布尺寸以最大化可用空間並保持固定長寬比 (16:9 橫向)
         function resizeCanvas() {
-            const container = document.getElementById('game-view');
+            if (gameState !== 'PLAYING') return; // 只有在遊戲進行中才執行調整
+
+            // 橫向 16:9 比例 (W:H)
+            const ASPECT_RATIO_W = 16;
+            const ASPECT_RATIO_H = 9;
+
+            const gameView = document.getElementById('game-view');
+            
+            // 使用 getBoundingClientRect 獲取 game-view 的實際渲染尺寸
+            const rect = gameView.getBoundingClientRect();
             
             // 找出 UI 元素的高度 (關卡/分數顯示)
-            const uiBar = container.querySelector('div');
-            const uiBarHeight = uiBar ? uiBar.offsetHeight + 12 : 0; // + 12 for margin-bottom
+            const uiBar = gameView.querySelector('div');
+            // uiBar 有 mb-3 (12px)。我們再增加一個小的安全邊緣 (8px)
+            const uiBarHeight = uiBar ? uiBar.offsetHeight + 12 + 8 : 20; 
 
             // 獲取容器的可用空間
-            const availableWidth = container.clientWidth;
-            // 減去 UI 欄的高度和一些安全間距
-            const availableHeight = container.clientHeight - uiBarHeight - 20; 
+            const availableWidth = rect.width;
+            // 減去 UI 欄的高度，就是畫布可用的最大高度
+            const availableHeight = rect.height - uiBarHeight; 
             
-            // 設置為可用的最大正方形
-            let size = Math.min(availableWidth, availableHeight);
+            let finalWidth;
+            let finalHeight;
+
+            // 1. 嘗試基於寬度來計算高度
+            const heightBasedOnWidth = availableWidth * (ASPECT_RATIO_H / ASPECT_RATIO_W);
+
+            if (heightBasedOnWidth <= availableHeight) {
+                // 寬度限制了尺寸，這是最大適合尺寸
+                finalWidth = availableWidth;
+                finalHeight = heightBasedOnWidth;
+            } else {
+                // 高度限制了尺寸，計算所需寬度
+                finalHeight = availableHeight;
+                finalWidth = availableHeight * (ASPECT_RATIO_W / ASPECT_RATIO_H);
+            }
+
+            // 四捨五入到整數，並保留一點邊緣緩衝 (5px)
+            finalWidth = Math.max(300, Math.floor(finalWidth - 5)); 
+            // 根據最終確定的寬度，重新計算高度，確保比例準確
+            finalHeight = Math.floor(finalWidth * (ASPECT_RATIO_H / ASPECT_RATIO_W)); 
+            finalHeight = Math.max(168, finalHeight); // 確保最小高度
 
             const oldWidth = canvas.width;
             const oldHeight = canvas.height;
             
-            canvas.width = size;
-            canvas.height = size;
+            // 設定畫布的寬高屬性
+            canvas.width = finalWidth;
+            canvas.height = finalHeight;
             
-            if (gameState === 'PLAYING' && oldWidth > 0 && oldHeight > 0) {
-                // 調整球體位置以適應新的畫布大小
+            // 調整球體位置以適應新的畫布大小 (只在畫布大小改變時進行)
+            if (oldWidth > 0 && oldHeight > 0 && balls.length > 0) {
                 balls.forEach(ball => {
-                    ball.x = ball.x * (size / oldWidth);
-                    ball.y = ball.y * (size / oldHeight);
+                    // 使用新舊畫布尺寸的比例來按比例縮放位置
+                    ball.x = ball.x * (finalWidth / oldWidth);
+                    ball.y = ball.y * (finalHeight / oldHeight);
                     // 確保球不會被擠出新畫布邊界
-                    ball.x = Math.max(ball.r, Math.min(ball.x, size - ball.r));
-                    ball.y = Math.max(ball.r, Math.min(ball.y, size - ball.r));
+                    ball.x = Math.max(ball.r, Math.min(ball.x, finalWidth - ball.r));
+                    ball.y = Math.max(ball.r, Math.min(ball.y, finalHeight - ball.r));
                 });
             }
         }
