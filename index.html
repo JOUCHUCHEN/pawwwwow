@@ -11,17 +11,20 @@
         body {
             font-family: 'Inter', sans-serif;
             background-color: #2c2834; /* 深色薰衣草紫/藍 */
+            height: 100vh; /* Full viewport height */
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
         }
         #game-container {
             width: 100%;
-            max-width: 900px;
+            height: 100vh; /* Full viewport height */
             margin: auto;
-            min-height: 80vh; 
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start; /* 讓標題位於頂部 */
             padding: 1rem;
+            box-sizing: border-box; /* 包含 padding 在內的 100vh */
         }
         #game-canvas {
             border: 4px solid #b794f4; /* 邊框使用貓咪主題色 (淺紫) */
@@ -82,7 +85,7 @@
         #menu-view {
             overflow-x: hidden; 
             overflow-y: scroll; 
-            max-height: 90vh; 
+            max-height: 90vh; /* 在菜單模式下仍然限制高度 */
         }
         
         #level-map-container {
@@ -162,7 +165,7 @@
         <h1 class="text-4xl font-extrabold text-white mb-6 text-center">🐾 喵喵點點樂：消除貓球！ 🐾</h1>
 
         <!-- 遊戲主介面 -->
-        <div id="game-screen" class="w-full relative"> 
+        <div id="game-screen" class="w-full relative flex-grow flex flex-col items-center justify-center"> 
             <!-- 頂部廣告區塊 -->
             <div id="ad-banner-top" class="ad-slot">
                 [您的廣告程式碼將放在此處] - 例如 Google AdSense
@@ -189,7 +192,7 @@
             </div>
 
             <!-- 遊戲進行中畫面 (隱藏狀態) -->
-            <div id="game-view" class="hidden flex-col items-center">
+            <div id="game-view" class="hidden flex-col items-center justify-center flex-grow w-full">
                 <div class="text-white text-xl font-bold mb-3">
                     關卡 <span id="current-level-display">1-1</span> - 剩餘目標: 
                     <span id="ball-count">10</span>
@@ -430,7 +433,6 @@
                 const unlocked = isLevelUnlocked(levelId);
                 const completed = isLevelCompleted(levelId);
                 
-                // FIX: 將 isCompleted 變數改為已定義的 completed
                 let levelClass = completed ? 'bg-teal-500 shadow-teal-700' : 
                                  (unlocked ? 'bg-green-500 shadow-green-700' : 'bg-gray-500 cursor-not-allowed opacity-70 shadow-gray-700');
                 
@@ -522,8 +524,8 @@
             document.getElementById('menu-view').classList.add('hidden');
             document.getElementById('complete-view').classList.add('hidden');
             document.getElementById('game-view').classList.remove('hidden');
-            document.getElementById('game-view').classList.add('flex'); 
-            
+            // game-view 已經在 HTML 中設定為 flex-grow
+
             // 隱藏頂部廣告
             document.getElementById('ad-banner-top').classList.add('hidden');
 
@@ -732,8 +734,19 @@
 
         function resizeCanvas() {
             const container = document.getElementById('game-view');
-            // 設置畫布為方形，寬度佔滿容器，但不超過 500px
-            const size = Math.min(container.clientWidth, 500); 
+            
+            // 找出 UI 元素的高度 (關卡/分數顯示)
+            const uiBar = container.querySelector('div');
+            const uiBarHeight = uiBar ? uiBar.offsetHeight + 12 : 0; // + 12 for margin-bottom
+
+            // 獲取容器的可用空間
+            const availableWidth = container.clientWidth;
+            // 減去 UI 欄的高度和一些安全間距
+            const availableHeight = container.clientHeight - uiBarHeight - 20; 
+            
+            // 設置為可用的最大正方形
+            let size = Math.min(availableWidth, availableHeight);
+
             const oldWidth = canvas.width;
             const oldHeight = canvas.height;
             
@@ -741,9 +754,11 @@
             canvas.height = size;
             
             if (gameState === 'PLAYING' && oldWidth > 0 && oldHeight > 0) {
+                // 調整球體位置以適應新的畫布大小
                 balls.forEach(ball => {
                     ball.x = ball.x * (size / oldWidth);
                     ball.y = ball.y * (size / oldHeight);
+                    // 確保球不會被擠出新畫布邊界
                     ball.x = Math.max(ball.r, Math.min(ball.x, size - ball.r));
                     ball.y = Math.max(ball.r, Math.min(ball.y, size - ball.r));
                 });
