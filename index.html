@@ -244,22 +244,23 @@
     <script>
         // --- 遊戲狀態變數與配置 ---
         const STORAGE_KEY = 'catGameProgress_v2';
-        const TOUCH_TOLERANCE = 15; // 點擊容忍度 (像素)
+        // 增加點擊容忍度，以應對快速劃過
+        const TOUCH_TOLERANCE = 20; 
         
-        let gameState = 'MENU'; // MENU, PLAYING, COMPLETE
+        let gameState = 'MENU'; 
         let currentLevel = { big: 1, sub: 1, config: null };
         let balls = [];
         let canvas, ctx;
         let animationFrameId;
-        let completedLevel = '0-0'; // B-S 格式. '0-0' 表示尚未完成任何關卡
+        let completedLevel = '0-0'; 
 
         // 關卡地圖配置
         const levelMap = {
-            1: { // 大關卡 1: 毛線球 (Yarn Balls) - 顏色以藍、綠、黃色調為主
+            1: { 
                 theme: "毛線球主題",
                 icon: "🧶",
                 subLevels: [
-                    // 1-1 關卡：兩顆毛球的體積加大，速度加快
+                    // 1-1 關卡：巨型加速
                     { id: '1-1', balls: 2, speed: 8.0, description: "巨型極速雙球挑戰 💥" },
                     { id: '1-2', balls: 12, speed: 3.5, description: "輕巧加速" },
                     { id: '1-3', balls: 15, speed: 4.0, description: "數量與速度" },
@@ -299,7 +300,7 @@
             }
         };
 
-        // --- 進度管理函數 (保持不變) ---
+        // --- 進度管理函數 (略) ---
 
         function loadProgress() {
             try {
@@ -361,7 +362,7 @@
             return false;
         }
 
-        // --- 螢幕旋轉/方向控制 (保持不變) ---
+        // --- 螢幕旋轉/方向控制 (略) ---
 
         function showOrientationWarning(show) {
             const warning = document.getElementById('orientation-warning');
@@ -391,7 +392,7 @@
             }
         }
 
-        // --- 遊戲介面與流程函數 (保持邏輯，調整呼叫) ---
+        // --- 遊戲介面與流程函數 (略) ---
 
         function renderLevelMap() {
             const mapContainer = document.getElementById('level-map-container');
@@ -527,7 +528,9 @@
             document.getElementById('current-level-display').textContent = config.subConfig.id;
 
             for (let i = 0; i < ballCount; i++) {
-                const r = Math.random() * (maxRadius - minRadius) + minRadius;
+                // 如果是 1-1 關卡，強制使用最大半徑，以確保巨型球
+                let r = (config.subConfig.id === '1-1') ? maxRadius : (Math.random() * (maxRadius - minRadius) + minRadius);
+
                 const x = Math.random() * (canvas.width - 2 * r) + r;
                 const y = Math.random() * (canvas.height - 2 * r) + r;
                 const dx = (Math.random() * maxSpeed * 2 - maxSpeed) || (Math.random() > 0.5 ? 0.5 : -0.5); 
@@ -687,59 +690,64 @@
             animationFrameId = requestAnimationFrame(gameLoop);
         }
         
-        // 修正點擊/觸摸消除邏輯
-        function handleInput(event) {
+        /**
+         * 處理滑鼠/觸摸輸入，並將螢幕座標轉換為 Canvas 座標
+         * @param {Event} event - 滑鼠或觸摸事件
+         * @param {boolean} isMove - 是否是 touchmove 事件
+         */
+        function processInput(event, isMove = false) {
             if (gameState !== 'PLAYING' || needsRotation()) return; 
             
-            // 確保觸摸事件不會觸發瀏覽器預設行為
-            if (event.type === 'touchstart') {
+            if (event.type === 'touchstart' || event.type === 'touchmove') {
                 event.preventDefault(); 
             }
 
-            let clientX, clientY;
-            if (event.type === 'touchstart') {
-                clientX = event.touches[0].clientX;
-                clientY = event.touches[0].clientY;
-            } else { 
-                clientX = event.clientX;
-                clientY = event.clientY;
-            }
-
+            const touches = event.touches ? Array.from(event.touches) : [{ clientX: event.clientX, clientY: event.clientY }];
+            
             const rect = canvas.getBoundingClientRect();
-
-            // 修正：將螢幕點擊座標轉換為 Canvas 內部繪圖座標
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
-            
-            const scaledClickX = (clientX - rect.left) * scaleX;
-            const scaledClickY = (clientY - rect.top) * scaleY;
-            
-            let hit = false;
-            // 倒序遍歷球體
-            for (let i = balls.length - 1; i >= 0; i--) {
-                const ball = balls[i];
-                if (!ball.isAlive) continue;
 
-                // 使用轉換後的座標進行距離計算
-                const distance = Math.sqrt(
-                    Math.pow(ball.x - scaledClickX, 2) + 
-                    Math.pow(ball.y - scaledClickY, 2)
-                );
+            let hitOccurred = false;
 
-                // 判斷擊中 (半徑 + 容忍度)
-                if (distance <= ball.r + TOUCH_TOLERANCE) {
-                    ball.isAlive = false; 
-                    hit = true;
-                    break;
+            for (const touch of touches) {
+                const clientX = touch.clientX;
+                const clientY = touch.clientY;
+
+                // 修正：將螢幕點擊座標轉換為 Canvas 內部繪圖座標
+                const scaledClickX = (clientX - rect.left) * scaleX;
+                const scaledClickY = (clientY - rect.top) * scaleY;
+
+                // 倒序遍歷球體，以便在消除後不影響循環
+                for (let i = balls.length - 1; i >= 0; i--) {
+                    const ball = balls[i];
+                    if (!ball.isAlive) continue;
+
+                    // 使用轉換後的座標進行距離計算
+                    const distance = Math.sqrt(
+                        Math.pow(ball.x - scaledClickX, 2) + 
+                        Math.pow(ball.y - scaledClickY, 2)
+                    );
+
+                    // 判斷擊中 (半徑 + 容忍度)
+                    if (distance <= ball.r + TOUCH_TOLERANCE) {
+                        ball.isAlive = false; 
+                        hitOccurred = true;
+                        // 劃過時，可以一次性消除多個球，所以不使用 break
+                        if (!isMove) {
+                            // 如果是單次點擊事件 (mousedown/touchstart/touchend)，則只消除一個球
+                            break; 
+                        }
+                    }
                 }
             }
 
-            if (hit) {
+            if (hitOccurred) {
                 updateBallCountDisplay();
                 checkGameCompletion();
             }
         }
-
+        
         function updateBallCountDisplay() {
             const aliveBalls = balls.filter(b => b.isAlive).length;
             document.getElementById('ball-count').textContent = aliveBalls;
@@ -760,9 +768,14 @@
             
             window.addEventListener('resize', handleResize);
             
-            canvas.addEventListener('mousedown', handleInput);
-            // 設置 passive: false 確保 touchstart 上的 preventDefault() 生效
-            canvas.addEventListener('touchstart', handleInput, { passive: false }); 
+            // 處理滑鼠點擊
+            canvas.addEventListener('mousedown', (e) => processInput(e, false));
+            
+            // 處理觸摸點擊 (單點觸摸)
+            canvas.addEventListener('touchstart', (e) => processInput(e, false), { passive: false }); 
+            
+            // 處理觸摸劃過 (拖曳)
+            canvas.addEventListener('touchmove', (e) => processInput(e, true), { passive: false });
             
             loadProgress(); 
             showMenu(); 
