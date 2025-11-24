@@ -23,9 +23,16 @@
             flex-direction: column;
             align-items: center;
             justify-content: flex-start; /* 讓標題位於頂部 */
-            padding: 1rem;
-            box-sizing: border-box; /* 包含 padding 在內的 100vh */
+            padding: 1rem; /* 選單模式下的內邊距 */
+            box-sizing: border-box; 
         }
+
+        /* 遊戲模式下的全螢幕設定 */
+        #game-container.playing {
+            padding: 0; /* 移除內邊距 */
+            justify-content: center; /* 讓內容置中 */
+        }
+
         #game-canvas {
             border: 4px solid #b794f4; /* 邊框使用貓咪主題色 (淺紫) */
             background-color: #f9f7e8; /* 淺黃/米白，像貓砂或墊子 */
@@ -33,7 +40,6 @@
             box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
             touch-action: manipulation; /* 禁用瀏覽器觸摸操作，提高遊戲響應 */
             display: block;
-            /* 讓畫布在 game-view 中置中 */
             margin: 0 auto; 
             max-width: 100%;
         }
@@ -76,18 +82,18 @@
             border-radius: 8px;
             text-align: center;
         }
-        /* 針對小螢幕調整廣告高度 */
         @media (max-width: 600px) {
              .ad-slot {
                 height: 50px;
              }
         }
 
-        /* --- 地圖模式 CSS (簡化版) --- */
+        /* --- 地圖模式 CSS --- */
         #menu-view {
             overflow-x: hidden; 
             overflow-y: scroll; 
-            max-height: 90vh; /* 在菜單模式下仍然限制高度 */
+            max-height: 80vh; 
+            flex-grow: 1; 
         }
         
         #level-map-container {
@@ -98,21 +104,21 @@
             margin: auto;
         }
 
-        /* 路徑線 (Path Line) - 位於中央 */
+        /* 路徑線 */
         #level-map-container::before {
             content: '';
             position: absolute;
             top: 0;
-            left: 50%; /* 中央對齊 */
+            left: 50%; 
             transform: translateX(-50%);
-            width: 8px; /* 路徑粗細 */
+            width: 8px; 
             height: 100%;
-            background-color: #63b3ed; /* 藍色路徑 */
+            background-color: #63b3ed; 
             border-radius: 4px;
             z-index: 10;
         }
 
-        /* 關卡節點 (大關卡) */
+        /* 關卡節點 */
         .map-node {
             position: absolute;
             width: 72px;
@@ -129,7 +135,7 @@
             border: 4px solid #fff;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
             transition: all 0.3s ease;
-            z-index: 20; /* 位於路徑線上方 */
+            z-index: 20; 
         }
         
         .map-node:hover:not(.locked) {
@@ -137,60 +143,55 @@
             box-shadow: 0 6px 15px rgba(255, 255, 255, 0.4);
         }
         
-        /* 節點狀態 */
         .map-node.unlocked {
-            background-color: #48bb78; /* 貓薄荷綠 (可玩) */
-            border-color: #f6ad55; /* 橙色邊框 (強調) */
+            background-color: #48bb78; 
+            border-color: #f6ad55; 
         }
         .map-node.completed {
-            background-color: #38b2ac; /* 青色 (已完成) */
-            border-color: #4c51bf; /* 深藍色邊框 */
+            background-color: #38b2ac; 
+            border-color: #4c51bf; 
         }
         .map-node.locked {
-            background-color: #718096; /* 灰色 (鎖定) */
+            background-color: #718096; 
             opacity: 0.6;
             cursor: not-allowed;
             border-color: #4a5568;
         }
 
-        /* 脈衝動畫 - 用於下一個可玩關卡 */
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(246, 173, 85, 0.7); }
             100% { box-shadow: 0 0 0 15px rgba(246, 173, 85, 0); }
         }
         
         /* ---------------------------------------------------- */
-        /* 設備旋轉提示 (Orientation Warning) - 僅在手機/平板直向時顯示 */
+        /* 設備旋轉提示 (Orientation Warning) - JS 控制顯示/隱藏 */
         /* ---------------------------------------------------- */
-        @media screen and (max-width: 768px) and (orientation: portrait) {
-            #orientation-warning {
-                display: flex !important;
-            }
-            /* 隱藏其他內容，強制用戶旋轉 */
-            #game-container {
-                visibility: hidden;
-            }
+        #orientation-warning {
+             display: none; 
         }
+
     </style>
 </head>
 <body>
 
-    <!-- Orientation Warning Overlay (for mobile/tablet portrait) -->
-    <div id="orientation-warning" class="fixed inset-0 z-50 bg-gray-900 flex items-center justify-center p-8 text-white text-center hidden">
+    <!-- Orientation Warning Overlay -->
+    <div id="orientation-warning" class="fixed inset-0 z-50 bg-gray-900 flex items-center justify-center p-8 text-white text-center">
         <div class="bg-red-600 p-8 rounded-xl shadow-2xl">
             <h2 class="text-3xl font-bold mb-4">請旋轉您的設備 🔄</h2>
             <p class="text-xl">此遊戲在橫向模式 (Landscape) 下提供最佳體驗。</p>
             <p class="text-lg mt-2">請將手機或平板電腦橫置。</p>
+            <button class="btn bg-white text-red-600 mt-6" onclick="showMenu()">返回關卡選擇</button>
         </div>
     </div>
 
+    <!-- 主遊戲容器 -->
     <div id="game-container">
-        <!-- 遊戲主標題 -->
-        <h1 class="text-4xl font-extrabold text-white mb-6 text-center">🐾 喵喵點點樂：消除貓球！ 🐾</h1>
+        <!-- 遊戲主標題 (僅在選單模式顯示) -->
+        <h1 id="main-title" class="text-4xl font-extrabold text-white mb-6 text-center">🐾 喵喵點點樂：消除貓球！ 🐾</h1>
 
         <!-- 遊戲主介面 -->
         <div id="game-screen" class="w-full relative flex-grow flex flex-col items-center justify-center"> 
-            <!-- 頂部廣告區塊 -->
+            <!-- 頂部廣告區塊 (僅在選單模式顯示) -->
             <div id="ad-banner-top" class="ad-slot">
                 [您的廣告程式碼將放在此處] - 例如 Google AdSense
             </div>
@@ -198,13 +199,12 @@
             <!-- 關卡選單 (地圖視圖) -->
             <div id="menu-view" class="p-4 bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto relative">
                 <h2 class="text-2xl font-bold text-white mb-4 text-center">🗺️ 逗貓地圖 🗺️</h2>
-                <!-- 地圖內容將由 JavaScript 動態生成 (只有大關卡節點) -->
                 <div id="level-map-container" class="relative">
                     <!-- Map Nodes will be generated here -->
                 </div>
             </div>
 
-            <!-- 子關卡選單 (Overlay/Modal) - 絕對定位於 game-screen 內部 -->
+            <!-- 子關卡選單 (Overlay/Modal) -->
             <div id="sub-level-view" class="hidden absolute inset-0 z-30 bg-gray-900 bg-opacity-90 flex items-center justify-center p-4">
                 <div class="bg-gray-700 p-6 rounded-xl shadow-2xl w-full max-w-sm">
                     <h3 id="sub-level-title" class="text-3xl font-bold text-white mb-4 text-center"></h3>
@@ -215,10 +215,11 @@
                 </div>
             </div>
 
-            <!-- 遊戲進行中畫面 (隱藏狀態) -->
-            <div id="game-view" class="hidden flex-col items-center justify-center flex-grow w-full">
-                <div class="text-white text-xl font-bold mb-3">
-                    關卡 <span id="current-level-display">1-1</span> - 剩餘目標: 
+            <!-- 遊戲進行中畫面 (全螢幕模式) -->
+            <div id="game-view" class="hidden flex-col items-center justify-center flex-grow w-full h-full">
+                <!-- 遊戲資訊 UI 欄 (最小化顯示在畫布上方) -->
+                <div id="game-info-bar" class="text-white text-xl font-bold mb-3 p-1 rounded-lg bg-gray-900 bg-opacity-50">
+                    關卡 <span id="current-level-display">1-1</span> - 剩餘: 
                     <span id="ball-count">10</span>
                 </div>
                 <canvas id="game-canvas"></canvas>
@@ -243,6 +244,8 @@
     <script>
         // --- 遊戲狀態變數與配置 ---
         const STORAGE_KEY = 'catGameProgress_v2';
+        const TOUCH_TOLERANCE = 15; // 增加點擊容忍度
+        
         let gameState = 'MENU'; // MENU, PLAYING, COMPLETE
         let currentLevel = { big: 1, sub: 1, config: null };
         let balls = [];
@@ -252,11 +255,11 @@
 
         // 關卡地圖配置
         const levelMap = {
-            1: { // 大關卡 1: 毛線球 (Yarn Balls)
+            1: { 
                 theme: "毛線球主題",
                 icon: "🧶",
                 subLevels: [
-                    { id: '1-1', balls: 10, speed: 3.0, description: "基礎訓練" },
+                    { id: '1-1', balls: 2, speed: 6.0, description: "極速雙球挑戰 ⚡" },
                     { id: '1-2', balls: 12, speed: 3.5, description: "輕巧加速" },
                     { id: '1-3', balls: 15, speed: 4.0, description: "數量與速度" },
                     { id: '1-4', balls: 18, speed: 4.5, description: "極限挑戰" },
@@ -265,7 +268,7 @@
                 radius: { min: 15, max: 25 },
                 colors: ['#f687b3', '#ecc94b', '#4fd1c5', '#b794f4', '#fc8181']
             },
-            2: { // 大關卡 2: 小昆蟲 (Small Insects)
+            2: { 
                 theme: "小昆蟲主題",
                 icon: "🐞",
                 subLevels: [
@@ -275,10 +278,10 @@
                     { id: '2-4', balls: 22, speed: 7.0, description: "群體亂舞" },
                     { id: '2-5', balls: 25, speed: 7.5, description: "昆蟲之王" }
                 ],
-                radius: { min: 10, max: 20 }, // 較小，難度增加
+                radius: { min: 10, max: 20 },
                 colors: ['#48bb78', '#a0aec0', '#d69e2e', '#4299e1']
             },
-            3: { // 大關卡 3: 老鼠 (Mice)
+            3: { 
                 theme: "老鼠主題",
                 icon: "🐭",
                 subLevels: [
@@ -288,12 +291,12 @@
                     { id: '3-4', balls: 35, speed: 9.5, description: "陷阱預備" },
                     { id: '3-5', balls: 40, speed: 10.0, description: "鼠王降臨" }
                 ],
-                radius: { min: 18, max: 30 }, // 混雜大小
+                radius: { min: 18, max: 30 },
                 colors: ['#cbd5e0', '#718096', '#2d3748', '#f56565']
             }
         };
 
-        // --- 進度管理函數 (使用 Local Storage) ---
+        // --- 進度管理函數 (保持不變) ---
 
         function loadProgress() {
             try {
@@ -320,7 +323,6 @@
             }
         }
 
-        // 取得目標關卡的前一關 ID
         function getPreviousLevelId(targetId) {
             const parts = targetId.split('-').map(Number);
             let big = parts[0];
@@ -329,29 +331,23 @@
             if (sub > 1) {
                 return `${big}-${sub - 1}`;
             } else if (big > 1) {
-                // 進入新大關卡的第一個小關卡，前一關是上一個大關卡的最後一個小關卡
                 const prevBigLevelConfig = levelMap[big - 1];
                 const lastSub = prevBigLevelConfig ? prevBigLevelConfig.subLevels.length : 5;
                 return `${big - 1}-${lastSub}`;
             } else {
-                // 關卡 1-1 的前一關是 '0-0'
                 return '0-0'; 
             }
         }
 
-        // 檢查目標關卡是否已解鎖 (前一關是否已完成)
         function isLevelUnlocked(targetId) {
-            if (targetId === '1-1') return true; // 1-1 永遠解鎖
-            if (completedLevel === 'MAX') return true; // 如果已經全破，所有關卡都可玩
+            if (targetId === '1-1') return true; 
+            if (completedLevel === 'MAX') return true; 
 
             const previousId = getPreviousLevelId(targetId);
-            // 關卡已解鎖的條件：前一關已經被標記為 'completedLevel'
             return isLevelCompleted(previousId);
         }
 
-        // 檢查目標關卡是否已完成 (自己是否已標記為 completedLevel)
         function isLevelCompleted(targetId) {
-            // 如果當前完成的關卡 ID 等於或大於目標關卡 ID，則視為已完成
             if (completedLevel === 'MAX') return true;
 
             const [targetB, targetS] = targetId.split('-').map(Number);
@@ -362,40 +358,60 @@
             return false;
         }
 
-        // --- 遊戲介面與流程函數 (地圖模式) ---
+        // --- 螢幕旋轉/方向控制 (保持不變) ---
 
-        // 動態生成大關卡地圖 UI
+        function showOrientationWarning(show) {
+            const warning = document.getElementById('orientation-warning');
+            if (show) {
+                warning.style.display = 'flex';
+            } else {
+                warning.style.display = 'none';
+            }
+        }
+
+        function needsRotation() {
+            const isSmallScreen = window.innerWidth <= 768 || window.innerHeight <= 768; 
+            const isPortrait = window.matchMedia("(orientation: portrait)").matches;
+            return isSmallScreen && isPortrait;
+        }
+
+        function handleResize() {
+            if (gameState === 'PLAYING') {
+                if (needsRotation()) {
+                    showOrientationWarning(true);
+                } else {
+                    showOrientationWarning(false);
+                    resizeCanvas(); // 在遊戲中且橫向時，重新調整畫布大小
+                }
+            } else {
+                showOrientationWarning(false);
+            }
+        }
+
+        // --- 遊戲介面與流程函數 (新增全螢幕類別切換) ---
+
+        // 動態生成大關卡地圖 UI (保持不變)
         function renderLevelMap() {
             const mapContainer = document.getElementById('level-map-container');
             mapContainer.innerHTML = '';
             
             const bigLevelKeys = Object.keys(levelMap).map(Number);
             const TOTAL_BIG_LEVELS = bigLevelKeys.length;
-            const VERTICAL_SPACING = 150; // 調整大關卡間距
+            const VERTICAL_SPACING = 150; 
             const CONTAINER_HEIGHT = TOTAL_BIG_LEVELS * VERTICAL_SPACING + 100; 
             mapContainer.style.height = `${CONTAINER_HEIGHT}px`;
 
             bigLevelKeys.forEach((big, index) => {
                 const firstLevelId = `${big}-1`;
-                // 檢查是否已解鎖 (只需檢查該大關卡的第一個小關卡是否解鎖)
                 const isBigLevelUnlocked = isLevelUnlocked(firstLevelId);
-                // 檢查是否已完成 (檢查該大關卡的最後一個小關卡是否完成)
-                const isBigLevelCompleted = isLevelCompleted(`${big}-5`); 
+                const isBigLevelCompleted = isLevelCompleted(`${big}-${levelMap[big].subLevels.length}`); 
                 
                 let levelClass = isBigLevelCompleted ? 'completed' : (isBigLevelUnlocked ? 'unlocked' : 'locked');
-                
-                // 突出顯示下一個要解鎖的大關卡 (即第一個未完成且已解鎖的大關卡)
                 const isCurrentNext = isBigLevelUnlocked && !isBigLevelCompleted;
-                
-                // 從底部往上排，讓 1 在最下面
                 const positionIndex = (TOTAL_BIG_LEVELS - 1) - index; 
                 const top = positionIndex * VERTICAL_SPACING + 20; 
-
-                // 左右交錯路徑
                 const isZigZagLeft = index % 2 === 0; 
                 const leftPercent = isZigZagLeft ? 20 : 80; 
-                
-                // 檢查大關卡是否可點擊 (已解鎖或已完成)
                 const isLevelAccessible = isBigLevelUnlocked || isBigLevelCompleted;
 
                 const nodeContent = `<div class="text-sm">第 ${big} 區</div>
@@ -416,19 +432,15 @@
                     </div>
                 `;
                 mapContainer.insertAdjacentHTML('beforeend', nodeHtml);
-                
-                // 滾動到第一個未完成且已解鎖的關卡
-                if (isCurrentNext) {
-                    setTimeout(() => {
-                        const nodeElement = document.getElementById(`big-node-${big}`);
-                        if (nodeElement) {
-                            nodeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    }, 100);
-                }
             });
 
-            // 處理「全破」狀態的額外提示 (例如終點)
+            setTimeout(() => {
+                const menuView = document.getElementById('menu-view');
+                if (menuView) {
+                    menuView.scrollTop = menuView.scrollHeight;
+                }
+            }, 50);
+
             if (completedLevel === 'MAX') {
                 const endTop = -10;
                 const endHtml = `
@@ -442,7 +454,7 @@
             }
         }
 
-        // 顯示子關卡選單
+        // 顯示子關卡選單 (保持不變)
         function showSubLevelSelection(big) {
             const themeConfig = levelMap[big];
             const subView = document.getElementById('sub-level-view');
@@ -466,7 +478,7 @@
 
                 const buttonHtml = `
                     <button class="w-full p-3 rounded-lg text-white font-semibold shadow-md transition-all ${levelClass}"
-                        onclick="${unlocked || completed ? `startGame(${big}, ${subConfig.id.split('-')[1]}, true);` : ''}"
+                        onclick="${unlocked || completed ? `startGame(${big}, ${subConfig.id.split('-')[1]});` : ''}"
                         ${unlocked || completed ? '' : 'disabled'}
                     >
                         ${levelText}
@@ -478,46 +490,49 @@
             subView.classList.remove('hidden');
         }
 
-        // 隱藏子關卡選單
+        // 隱藏子關卡選單 (保持不變)
         function hideSubLevelSelection() {
             document.getElementById('sub-level-view').classList.add('hidden');
         }
 
 
-        // 顯示選單畫面
+        // 顯示選單畫面 (新增移除全螢幕類別)
         function showMenu() {
             if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
             }
             gameState = 'MENU';
+            
+            // 移除全螢幕類別，恢復菜單佈局
+            document.getElementById('game-container').classList.remove('playing');
+            document.getElementById('main-title').classList.remove('hidden');
+            showOrientationWarning(false); 
+
             document.getElementById('menu-view').classList.remove('hidden');
             document.getElementById('game-view').classList.add('hidden');
             document.getElementById('complete-view').classList.add('hidden');
             
-            // 確保頂部廣告在菜單時可見
             document.getElementById('ad-banner-top').classList.remove('hidden');
-            hideSubLevelSelection(); // 確保返回地圖時子選單是隱藏的
+            document.getElementById('ad-banner-complete').classList.add('hidden');
+            hideSubLevelSelection(); 
 
-            renderLevelMap(); // 返回選單時重新渲染地圖
+            renderLevelMap(); 
         }
 
-        // 根據關卡配置生成球體
+        // 根據關卡配置生成球體 (保持不變)
         function initLevel(config) {
             balls = [];
             const { balls: ballCount, speed: maxSpeed } = config.subConfig;
             const { min: minRadius, max: maxRadius } = config.themeConfig.radius;
             const colors = config.themeConfig.colors;
 
-            // 更新顯示
             document.getElementById('ball-count').textContent = ballCount;
             document.getElementById('current-level-display').textContent = config.subConfig.id;
 
-            // 生成球
             for (let i = 0; i < ballCount; i++) {
                 const r = Math.random() * (maxRadius - minRadius) + minRadius;
                 const x = Math.random() * (canvas.width - 2 * r) + r;
                 const y = Math.random() * (canvas.height - 2 * r) + r;
-                // 隨機速度 (最小為 0.5)
                 const dx = (Math.random() * maxSpeed * 2 - maxSpeed) || (Math.random() > 0.5 ? 0.5 : -0.5); 
                 const dy = (Math.random() * maxSpeed * 2 - maxSpeed) || (Math.random() > 0.5 ? 0.5 : -0.5);
                 const color = colors[i % colors.length];
@@ -526,12 +541,22 @@
             }
         }
 
-        // 啟動遊戲
-        function startGame(big, sub, isAllowed) {
-            if (!isAllowed) {
-                console.log(`關卡 ${big}-${sub} 尚未解鎖！`);
-                return;
+        // 啟動遊戲 (新增全螢幕類別)
+        function startGame(big, sub) {
+            // 遊戲開始前，強制檢查方向
+            if (needsRotation()) {
+                showOrientationWarning(true);
+                return; // 阻止遊戲啟動
             }
+
+            showOrientationWarning(false); 
+            
+            // 新增全螢幕類別，移除 padding
+            document.getElementById('game-container').classList.add('playing');
+            
+            // 隱藏所有不需要的標題/廣告
+            document.getElementById('main-title').classList.add('hidden');
+            document.getElementById('ad-banner-top').classList.add('hidden');
 
             const themeConfig = levelMap[big];
             const subConfig = themeConfig.subLevels[sub - 1];
@@ -541,17 +566,12 @@
             currentLevel.config = { themeConfig, subConfig };
             gameState = 'PLAYING';
             
-            // 隱藏子關卡選單
             hideSubLevelSelection();
 
             // 切換畫面
             document.getElementById('menu-view').classList.add('hidden');
             document.getElementById('complete-view').classList.add('hidden');
             document.getElementById('game-view').classList.remove('hidden');
-            // game-view 已經在 HTML 中設定為 flex-grow
-
-            // 隱藏頂部廣告
-            document.getElementById('ad-banner-top').classList.add('hidden');
 
             // 調整畫布大小並初始化
             resizeCanvas(); 
@@ -559,7 +579,7 @@
             gameLoop();
         }
 
-        // 遊戲完成
+        // 遊戲完成 (保持不變)
         function completeGame() {
             gameState = 'COMPLETE';
             cancelAnimationFrame(animationFrameId);
@@ -569,13 +589,12 @@
             let message = `您成功逗樂了所有毛線球！`;
 
             if (!isLevelCompleted(currentId)) {
-                // 如果是第一次通關，則更新進度
                 saveProgress(currentId); 
                 const nextId = getNextLevelId(currentId);
                 
                 if (nextId === 'MAX') {
                     message = '🏆 恭喜您！所有關卡都已完成，您是最棒的貓咪大師！ 🏆';
-                    saveProgress('MAX'); // 標記為全破
+                    saveProgress('MAX'); 
                 } else {
                     message += ` 恭喜！您已解鎖下一關 ${nextId}！`;
                 }
@@ -585,37 +604,34 @@
             
             document.getElementById('completion-message').textContent = message;
 
-            // 切換畫面
             document.getElementById('game-view').classList.add('hidden');
             document.getElementById('complete-view').classList.remove('hidden');
             
-            // 確保完成畫面的廣告可見
             document.getElementById('ad-banner-complete').classList.remove('hidden');
         }
 
-        // 取得下一個關卡 ID
+        // 取得下一個關卡 ID (保持不變)
         function getNextLevelId(currentId) {
             const parts = currentId.split('-').map(Number);
             let big = parts[0];
             let sub = parts[1];
 
-            if (sub < 5) {
-                // 移至當前大關卡的下一個小關卡
+            const currentBigLevel = levelMap[big];
+            
+            if (currentBigLevel && sub < currentBigLevel.subLevels.length) {
                 sub++;
                 return `${big}-${sub}`;
             } else if (levelMap[big + 1]) {
-                // 移至下一個大關卡的第一個小關卡
                 big++;
                 return `${big}-1`;
             } else {
-                // 遊戲完全完成
                 return 'MAX';
             }
         }
 
         // --- 核心遊戲元件 (Ball Class & Loop) ---
 
-        // 球體類別 (Ball Class)
+        // 球體類別 (保持不變)
         class Ball {
             constructor(x, y, r, dx, dy, color) {
                 this.x = x; 
@@ -630,7 +646,6 @@
             draw() {
                 if (!this.isAlive) return;
                 
-                // 主體
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
@@ -641,9 +656,8 @@
                 
                 ctx.shadowBlur = 0; 
                 
-                // 亮點/紋理 (讓它看起來像個毛線/玩具)
                 ctx.beginPath();
-                ctx.arc(this.x + this.r / 3, this.y - this.r / 3, this.r / 5, 0, Math.PI * 2);
+                ctx.arc(this.x + this.r / 3, this.y - this.r / 3, this.r / 3.5, 0, Math.PI * 2);
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
                 ctx.fill();
                 ctx.closePath();
@@ -652,14 +666,12 @@
             update() {
                 if (!this.isAlive) return;
 
-                // 碰撞邊界檢測 (X 軸)
                 if (this.x + this.r > canvas.width || this.x - this.r < 0) {
                     this.dx = -this.dx;
                     if (this.x + this.r > canvas.width) this.x = canvas.width - this.r;
                     if (this.x - this.r < 0) this.x = this.r;
                 }
 
-                // 碰撞邊界檢測 (Y 軸)
                 if (this.y + this.r > canvas.height || this.y - this.r < 0) {
                     this.dy = -this.dy;
                     if (this.y + this.r > canvas.height) this.y = canvas.height - this.r;
@@ -687,9 +699,9 @@
             animationFrameId = requestAnimationFrame(gameLoop);
         }
         
-        // 處理滑鼠/觸摸輸入
+        // 處理滑鼠/觸摸輸入 (保持不變)
         function handleInput(event) {
-            if (gameState !== 'PLAYING') return;
+            if (gameState !== 'PLAYING' || needsRotation()) return; 
             
             if (event.type === 'touchstart') {
                 event.preventDefault(); 
@@ -709,14 +721,13 @@
             const clickY = clientY - rect.top;
 
             let hit = false;
-            // 倒序遍歷球體
             for (let i = balls.length - 1; i >= 0; i--) {
                 const ball = balls[i];
                 if (!ball.isAlive) continue;
 
                 const distance = Math.sqrt(Math.pow(ball.x - clickX, 2) + Math.pow(ball.y - clickY, 2));
 
-                if (distance <= ball.r) {
+                if (distance <= ball.r + TOUCH_TOLERANCE) {
                     ball.isAlive = false; 
                     hit = true;
                     break;
@@ -741,88 +752,77 @@
             }
         }
 
-        // --- 初始化 ---
+        // --- 初始化與畫布調整 (重點修改) ---
 
         function setupGame() {
             canvas = document.getElementById('game-canvas');
             ctx = canvas.getContext('2d');
             
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
+            window.addEventListener('resize', handleResize);
             
             canvas.addEventListener('mousedown', handleInput);
-            canvas.addEventListener('touchstart', handleInput, { passive: true });
+            canvas.addEventListener('touchstart', handleInput, { passive: false }); 
             
-            loadProgress(); // 載入之前完成的最高關卡
-            showMenu(); // 顯示地圖
+            loadProgress(); 
+            showMenu(); 
         }
 
         // 調整畫布尺寸以最大化可用空間並保持固定長寬比 (16:9 橫向)
         function resizeCanvas() {
-            if (gameState !== 'PLAYING') return; // 只有在遊戲進行中才執行調整
+            if (gameState !== 'PLAYING' || needsRotation()) return;
 
-            // 橫向 16:9 比例 (W:H)
             const ASPECT_RATIO_W = 16;
             const ASPECT_RATIO_H = 9;
 
-            const gameView = document.getElementById('game-view');
+            // 遊戲容器已設置為全螢幕，因此使用視窗大小
+            const availableWidth = window.innerWidth;
+            const availableHeight = window.innerHeight; 
             
-            // 使用 getBoundingClientRect 獲取 game-view 的實際渲染尺寸
-            const rect = gameView.getBoundingClientRect();
-            
-            // 找出 UI 元素的高度 (關卡/分數顯示)
-            const uiBar = gameView.querySelector('div');
-            // uiBar 有 mb-3 (12px)。我們再增加一個小的安全邊緣 (8px)
-            const uiBarHeight = uiBar ? uiBar.offsetHeight + 12 + 8 : 20; 
+            // 獲取遊戲狀態欄的高度，從總高度中扣除
+            const uiBar = document.getElementById('game-info-bar');
+            // 獲取實際高度 (包含 margin-bottom 3)
+            const uiBarHeight = uiBar ? uiBar.offsetHeight + 12 : 20; 
 
-            // 獲取容器的可用空間
-            const availableWidth = rect.width;
-            // 減去 UI 欄的高度，就是畫布可用的最大高度
-            const availableHeight = rect.height - uiBarHeight; 
+            const maxCanvasHeight = availableHeight - uiBarHeight;
+            const maxCanvasWidth = availableWidth;
             
             let finalWidth;
             let finalHeight;
 
-            // 1. 嘗試基於寬度來計算高度
-            const heightBasedOnWidth = availableWidth * (ASPECT_RATIO_H / ASPECT_RATIO_W);
+            // 計算 16:9 比例
+            const heightBasedOnWidth = maxCanvasWidth * (ASPECT_RATIO_H / ASPECT_RATIO_W);
 
-            if (heightBasedOnWidth <= availableHeight) {
-                // 寬度限制了尺寸，這是最大適合尺寸
-                finalWidth = availableWidth;
+            if (heightBasedOnWidth <= maxCanvasHeight) {
+                // 寬度是限制因素 (使用全部寬度)
+                finalWidth = maxCanvasWidth;
                 finalHeight = heightBasedOnWidth;
             } else {
-                // 高度限制了尺寸，計算所需寬度
-                finalHeight = availableHeight;
-                finalWidth = availableHeight * (ASPECT_RATIO_W / ASPECT_RATIO_H);
+                // 高度是限制因素 (使用全部可用高度)
+                finalHeight = maxCanvasHeight;
+                finalWidth = maxCanvasHeight * (ASPECT_RATIO_W / ASPECT_RATIO_H);
             }
 
-            // 四捨五入到整數，並保留一點邊緣緩衝 (5px)
-            finalWidth = Math.max(300, Math.floor(finalWidth - 5)); 
-            // 根據最終確定的寬度，重新計算高度，確保比例準確
-            finalHeight = Math.floor(finalWidth * (ASPECT_RATIO_H / ASPECT_RATIO_W)); 
-            finalHeight = Math.max(168, finalHeight); // 確保最小高度
-
+            // 確保值為整數
+            finalWidth = Math.max(300, Math.floor(finalWidth)); 
+            finalHeight = Math.max(168, Math.floor(finalHeight)); 
+            
             const oldWidth = canvas.width;
             const oldHeight = canvas.height;
             
-            // 設定畫布的寬高屬性
             canvas.width = finalWidth;
             canvas.height = finalHeight;
             
-            // 調整球體位置以適應新的畫布大小 (只在畫布大小改變時進行)
+            // 重新定位球體
             if (oldWidth > 0 && oldHeight > 0 && balls.length > 0) {
                 balls.forEach(ball => {
-                    // 使用新舊畫布尺寸的比例來按比例縮放位置
                     ball.x = ball.x * (finalWidth / oldWidth);
                     ball.y = ball.y * (finalHeight / oldHeight);
-                    // 確保球不會被擠出新畫布邊界
                     ball.x = Math.max(ball.r, Math.min(ball.x, finalWidth - ball.r));
                     ball.y = Math.max(ball.r, Math.min(ball.y, finalHeight - ball.r));
                 });
             }
         }
         
-        // 確保在視窗載入完成後初始化
         window.onload = setupGame;
 
     </script>
