@@ -3,42 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>喵喵點點樂：地圖模式消除遊戲</title>
+    <title>喵喵點點樂：3D 歡樂島地圖</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Three.js 核心庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- 引入 OrbitControls (用於地圖旋轉和縮放) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         /* 遊戲專用自訂樣式 */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #2c2834; /* 深色薰衣草紫/藍 */
-            height: 100vh; /* Full viewport height */
+            height: 100vh; 
             margin: 0;
-            overflow: hidden; /* Prevent scrollbars */
+            overflow: hidden; 
         }
         #game-container {
             width: 100%;
-            height: 100vh; /* Full viewport height */
+            height: 100vh; 
             margin: auto;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start; /* 讓標題位於頂部 */
-            padding: 1rem; /* 選單模式下的內邊距 */
+            justify-content: flex-start;
+            padding: 1rem;
             box-sizing: border-box; 
         }
 
         /* 遊戲模式下的全螢幕設定 */
         #game-container.playing {
-            padding: 0; /* 移除內邊距 */
-            justify-content: center; /* 讓內容置中 */
+            padding: 0; 
+            justify-content: center; 
         }
 
+        /* 2D 遊戲畫布 */
         #game-canvas {
-            border: 4px solid #b794f4; /* 邊框使用貓咪主題色 (淺紫) */
-            background-color: #f9f7e8; /* 淺黃/米白，像貓砂或墊子 */
+            border: 4px solid #b794f4; 
+            background-color: #f9f7e8;
             border-radius: 12px;
             box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
-            touch-action: manipulation; /* 禁用瀏覽器觸摸操作，提高遊戲響應 */
+            touch-action: manipulation; 
             display: block;
             margin: 0 auto; 
             max-width: 100%;
@@ -63,108 +68,25 @@
 
         /* 完成畫面的顏色 */
         .complete-bg {
-            background-color: #48bb78; /* 綠色，表示成功 */
+            background-color: #48bb78; /* 綠色, 表示成功 */
         }
         
-        /* 廣告版位樣式 (Placeholder) */
-        .ad-slot {
-            margin: 1.5rem auto;
+        /* --- 3D 地圖容器 CSS --- */
+        #three-container {
             width: 90%;
-            max-width: 728px;
-            height: 90px;
-            background-color: #333;
-            color: #ccc;
-            border: 2px dashed #666;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-            border-radius: 8px;
-            text-align: center;
-        }
-        @media (max-width: 600px) {
-             .ad-slot {
-                height: 50px;
-             }
-        }
-
-        /* --- 地圖模式 CSS --- */
-        #menu-view {
-            overflow-x: hidden; 
-            overflow-y: scroll; 
-            max-height: 80vh; 
-            flex-grow: 1; 
+            max-width: 800px;
+            height: 85vh; /* 保持 3D 渲染區域的尺寸限制 */
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
         }
         
-        #level-map-container {
-            position: relative;
-            width: 100%;
-            min-height: 800px; 
-            padding: 2rem 0;
-            margin: auto;
+        #three-container canvas {
+            display: block;
         }
 
-        /* 路徑線 */
-        #level-map-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%; 
-            transform: translateX(-50%);
-            width: 8px; 
-            height: 100%;
-            background-color: #63b3ed; 
-            border-radius: 4px;
-            z-index: 10;
-        }
-
-        /* 關卡節點 */
-        .map-node {
-            position: absolute;
-            width: 72px;
-            height: 72px;
-            border-radius: 50%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            line-height: 1.1;
-            cursor: pointer;
-            border: 4px solid #fff;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-            transition: all 0.3s ease;
-            z-index: 20; 
-        }
-        
-        .map-node:hover:not(.locked) {
-            transform: scale(1.15) !important;
-            box-shadow: 0 6px 15px rgba(255, 255, 255, 0.4);
-        }
-        
-        .map-node.unlocked {
-            background-color: #48bb78; 
-            border-color: #f6ad55; 
-        }
-        .map-node.completed {
-            background-color: #38b2ac; 
-            border-color: #4c51bf; 
-        }
-        .map-node.locked {
-            background-color: #718096; 
-            opacity: 0.6;
-            cursor: not-allowed;
-            border-color: #4a5568;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(246, 173, 85, 0.7); }
-            100% { box-shadow: 0 0 0 15px rgba(246, 173, 85, 0); }
-        }
-        
         /* ---------------------------------------------------- */
-        /* 設備旋轉提示 (Orientation Warning) - JS 控制顯示/隱藏 */
+        /* 設備旋轉提示 (Orientation Warning) */
         /* ---------------------------------------------------- */
         #orientation-warning {
              display: none; 
@@ -191,52 +113,61 @@
 
         <!-- 遊戲主介面 -->
         <div id="game-screen" class="w-full relative flex-grow flex flex-col items-center justify-center"> 
-            <!-- 頂部廣告區塊 (僅在選單模式顯示) -->
-            <div id="ad-banner-top" class="ad-slot">
-                [您的廣告程式碼將放在此處] - 例如 Google AdSense
-            </div>
             
-            <!-- 關卡選單 (地圖視圖) -->
-            <div id="menu-view" class="p-4 bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto relative">
-                <h2 class="text-2xl font-bold text-white mb-4 text-center">🗺️ 逗貓地圖 🗺️</h2>
-                <div id="level-map-container" class="relative">
-                    <!-- Map Nodes will be generated here -->
+            <!-- 3D 關卡選單 (地圖視圖) - 使用 absolute inset-0 確保全覆蓋 -->
+            <div id="menu-view" class="absolute inset-0 flex flex-col items-center justify-center p-4">
+                <h2 class="text-3xl font-bold text-white mb-4 rotate-0 text-center absolute top-0 left-1/2 transform -translate-x-1/2 z-20 p-2 rounded-lg bg-gray-900 bg-opacity-50">
+                    🗺️ 3D 歡樂島地圖 🗺️
+                </h2>
+                <div id="three-container">
+                    <!-- Three.js Canvas will be appended here -->
                 </div>
             </div>
 
             <!-- 子關卡選單 (Overlay/Modal) -->
             <div id="sub-level-view" class="hidden absolute inset-0 z-30 bg-gray-900 bg-opacity-90 flex items-center justify-center p-4">
                 <div class="bg-gray-700 p-6 rounded-xl shadow-2xl w-full max-w-sm">
-                    <h3 id="sub-level-title" class="text-3xl font-bold text-white mb-4 text-center"></h3>
+                    <h3 id="sub-level-title" class="text-3xl font-bold text-white mb-4 rotate-0 text-center"></h3>
                     <div id="sub-levels-list" class="space-y-3">
                         <!-- Sub-level buttons go here -->
                     </div>
-                    <button class="btn w-full text-white mt-6 bg-red-500 shadow-md shadow-red-700 hover:bg-red-600" onclick="hideSubLevelSelection()">返回地圖</button>
+                    <!-- FIX: 點擊按鈕時, 調用 showMenu() 確保地圖狀態被正確重置並顯示 -->
+                    <button class="btn w-full text-white mt-6 bg-red-500 shadow-md shadow-red-700 hover:bg-red-600" onclick="showMenu()">返回地圖</button>
                 </div>
             </div>
 
-            <!-- 遊戲進行中畫面 (全螢幕模式) -->
-            <div id="game-view" class="hidden flex-col items-center justify-center flex-grow w-full h-full">
+            <!-- 遊戲進行中畫面 (全螢幕模式) - 使用 absolute inset-0 確保全覆蓋 -->
+            <div id="game-view" class="hidden absolute inset-0 flex-col items-center justify-center w-full h-full">
                 <!-- 遊戲資訊 UI 欄 (最小化顯示在畫布上方) -->
                 <div id="game-info-bar" class="text-white text-xl font-bold mb-3 p-1 rounded-lg bg-gray-900 bg-opacity-50">
                     關卡 <span id="current-level-display">1-1</span> - 剩餘: 
                     <span id="ball-count">10</span>
                 </div>
                 <canvas id="game-canvas"></canvas>
+                <!-- 遊戲控制條 -->
+                <div id="game-controls" class="mt-4">
+                    <!-- 退出遊戲時, 返回該主題的關卡選擇畫面 -->
+                    <button class="btn text-white bg-red-500 shadow-md shadow-red-700 hover:bg-red-600" 
+                            onclick="returnToThemeLevelSelection()">
+                        返回關卡選擇
+                    </button>
+                </div>
             </div>
 
             <!-- 關卡完成畫面 (隱藏狀態) -->
-            <div id="complete-view" class="hidden p-8 complete-bg rounded-xl shadow-2xl text-white text-center">
+            <div id="complete-view" class="hidden p-8 complete-bg rounded-xl shadow-2xl text-white text-center absolute inset-0 z-40 flex flex-col items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <h2 class="text-4xl font-extrabold mb-4">🎉 貓咪大滿足！ 🎉</h2>
-                <p id="completion-message" class="text-xl mb-6">您成功逗樂了所有毛線球！</p>
-                <!-- 完成畫面小廣告 -->
-                <div id="ad-banner-complete" class="ad-slot h-20 text-sm max-w-sm">
-                    [您的廣告程式碼將放在此處] - 完成畫面
+                <p id="completion-message" class="text-xl mb-6">您成功逗樂了所有目標物！</p>
+                <!-- 調整按鈕佈局以包含下一關選項 -->
+                <div class="flex flex-col space-y-4 w-full max-w-xs mx-auto">
+                    <!-- 下一關按鈕 (動態顯示/隱藏) -->
+                    <button id="next-level-btn" class="hidden btn text-white bg-blue-500 shadow-md shadow-blue-700 hover:bg-blue-600" onclick="startNextLevel()">下一關卡</button>
+                    <!-- 回主題關卡按鈕 -->
+                    <button id="return-to-map-btn" class="btn text-white bg-pink-500 shadow-md shadow-pink-700 hover:bg-pink-600" onclick="returnToThemeLevelSelection()">回主題關卡</button>
                 </div>
-                <button class="btn text-white mt-4" onclick="showMenu()">返回地圖</button>
             </div>
         </div>
     </div>
@@ -244,7 +175,6 @@
     <script>
         // --- 遊戲狀態變數與配置 ---
         const STORAGE_KEY = 'catGameProgress_v2';
-        // 增加點擊容忍度，以應對快速劃過
         const TOUCH_TOLERANCE = 20; 
         
         let gameState = 'MENU'; 
@@ -253,6 +183,12 @@
         let canvas, ctx;
         let animationFrameId;
         let completedLevel = '0-0'; 
+        
+        // --- Three.js 變數 ---
+        let scene, camera, renderer, controls;
+        let raycaster, mouse;
+        let mapGroup;
+        const LEVEL_NODES_3D = []; // 存儲 3D 關卡物件以便 Raycasting 
 
         // 關卡地圖配置
         const levelMap = {
@@ -260,16 +196,13 @@
                 theme: "毛線球主題",
                 icon: "🧶",
                 subLevels: [
-                    // 1-1 關卡：巨型加速
-                    { id: '1-1', balls: 2, speed: 8.0, description: "巨型極速雙球挑戰 💥" },
-                    { id: '1-2', balls: 12, speed: 3.5, description: "輕巧加速" },
-                    { id: '1-3', balls: 15, speed: 4.0, description: "數量與速度" },
-                    { id: '1-4', balls: 18, speed: 4.5, description: "極限挑戰" },
-                    { id: '1-5', balls: 20, speed: 5.0, description: "貓球大師" }
+                    { id: '1-1', balls: 1, speed: 6.0, description: "單球暖身 👶" },
+                    { id: '1-2', balls: 3, speed: 8.0, description: "三球挑戰 💪" },
+                    { id: '1-3', balls: 6, speed: 10.0, description: "數量與速度 🏃" },
+                    { id: '1-4', balls: 8, speed: 12.0, description: "閃電八球 ⚡" },
+                    { id: '1-5', balls: 10, speed: 14.0, description: "十球大師 🐱‍🏍" }
                 ],
-                // 體積加大
                 radius: { min: 25, max: 40 }, 
-                // 藍、綠、黃色調
                 colors: ['#4299e1', '#48bb78', '#ecc94b', '#3182ce', '#38a169'] 
             },
             2: { 
@@ -297,11 +230,23 @@
                 ],
                 radius: { min: 18, max: 30 },
                 colors: ['#cbd5e0', '#718096', '#2d3748', '#f56565']
+            },
+            4: {
+                theme: "打地鼠主題",
+                icon: "🐹", // 倉鼠/地鼠 圖示
+                subLevels: [
+                    { id: '4-1', balls: 1, speed: 4.0, description: "單鼠暖身 🔨" },
+                    { id: '4-2', balls: 3, speed: 5.0, description: "三鼠出擊" },
+                    { id: '4-3', balls: 5, speed: 6.0, description: "五鼠圍攻" },
+                    { id: '4-4', balls: 8, speed: 7.0, description: "八鼠狂奔" },
+                    { id: '4-5', balls: 12, speed: 8.0, description: "地鼠之王 👑" }
+                ],
+                radius: { min: 30, max: 50 }, // 較大的目標
+                colors: ['#8b4513', '#a0522d', '#79553d'] // 棕色/泥土色
             }
         };
 
-        // --- 進度管理函數 (略) ---
-
+        // --- 進度管理函數 (保持不變) ---
         function loadProgress() {
             try {
                 const storedLevel = localStorage.getItem(STORAGE_KEY);
@@ -342,6 +287,30 @@
                 return '0-0'; 
             }
         }
+        
+        // 檢查是否有下一關卡, 並返回下一關卡的 ID, 否則返回 'MAX'
+        function getNextLevelId(currentId) {
+            const parts = currentId.split('-').map(Number);
+            let big = parts[0];
+            let sub = parts[1];
+
+            const currentBigLevel = levelMap[big];
+            
+            // 檢查當前大關卡是否有下一小關
+            if (currentBigLevel && sub < currentBigLevel.subLevels.length) {
+                sub++;
+                return `${big}-${sub}`;
+            } 
+            // 檢查是否有下一個大關卡
+            else if (levelMap[big + 1]) {
+                big++;
+                return `${big}-1`;
+            } 
+            // 沒有下一關了
+            else {
+                return 'MAX';
+            }
+        }
 
         function isLevelUnlocked(targetId) {
             if (targetId === '1-1') return true; 
@@ -362,7 +331,7 @@
             return false;
         }
 
-        // --- 螢幕旋轉/方向控制 (略) ---
+        // --- 螢幕旋轉/方向控制 (保持不變) ---
 
         function showOrientationWarning(show) {
             const warning = document.getElementById('orientation-warning');
@@ -387,75 +356,249 @@
                     showOrientationWarning(false);
                     resizeCanvas(); 
                 }
-            } else {
-                showOrientationWarning(false);
+            } else if (gameState === 'MENU') {
+                // 調整 3D 渲染器大小
+                const container = document.getElementById('three-container');
+                if (renderer && container) {
+                    const width = container.clientWidth;
+                    const height = container.clientHeight;
+                    camera.aspect = width / height;
+                    // 修正錯誤：使用正確的 Three.js 方法名稱
+                    camera.updateProjectionMatrix(); 
+                    renderer.setSize(width, height);
+                }
             }
         }
 
-        // --- 遊戲介面與流程函數 (略) ---
+        // --- 3D 地圖初始化與渲染 ---
+        function initThreeScene() {
+            const container = document.getElementById('three-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
 
-        function renderLevelMap() {
-            const mapContainer = document.getElementById('level-map-container');
-            mapContainer.innerHTML = '';
+            // 1. 場景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb); // 天空藍
+
+            // 2. 攝影機
+            camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+            camera.position.set(0, 50, 50); // 抬高並稍微靠近
+
+            // 3. 渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true; // 啟用陰影
+            container.appendChild(renderer.domElement);
+
+            // 4. 控制器 (軌道控制)
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; // 啟用阻尼效果
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 30;
+            controls.maxDistance = 150;
+            controls.target.set(0, 0, 0); // 鎖定中心
+
+            // 5. 光源
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // 環境光
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // 方向光
+            directionalLight.position.set(50, 100, 50);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 200;
+            directionalLight.shadow.camera.left = -100;
+            directionalLight.shadow.camera.right = 100;
+            directionalLight.shadow.camera.top = 100;
+            directionalLight.shadow.camera.bottom = -100;
+            scene.add(directionalLight);
+
+            // 6. 3D 物件群組
+            mapGroup = new THREE.Group();
+            scene.add(mapGroup);
             
+            // 7. 設置島嶼基底
+            createIslandBase();
+
+            // 8. 添加事件監聽
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            renderer.domElement.addEventListener('click', onMapNodeClick, false);
+            
+            // 9. 建立地圖節點
+            createLevelNodes3D();
+            
+            // 10. 開始渲染循環
+            animateThreeScene();
+        }
+        
+        function createIslandBase() {
+            // 島嶼基底 (淺綠色/泥土色)
+            const islandGeometry = new THREE.CylinderGeometry(40, 60, 10, 32); 
+            const islandMaterial = new THREE.MeshPhongMaterial({ color: 0x90EE90, shininess: 5 }); // Light Green
+            const island = new THREE.Mesh(islandGeometry, islandMaterial);
+            island.position.y = -5;
+            island.receiveShadow = true;
+            mapGroup.add(island);
+
+            // 水面 (藍色)
+            const waterGeometry = new THREE.CircleGeometry(150, 32);
+            const waterMaterial = new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.8 });
+            const water = new THREE.Mesh(waterGeometry, waterMaterial);
+            water.rotation.x = -Math.PI / 2;
+            water.position.y = -10;
+            scene.add(water);
+        }
+
+        // --- 創建簡潔的 3D 球體節點 ---
+        function createLevelNodes3D() {
+            // 清空舊的節點
+            LEVEL_NODES_3D.length = 0;
+            // 移除所有標記為 isLevelNode 的物件
+            mapGroup.children.filter(c => c.userData.isLevelNode).forEach(c => mapGroup.remove(c));
+
             const bigLevelKeys = Object.keys(levelMap).map(Number);
             const TOTAL_BIG_LEVELS = bigLevelKeys.length;
-            const VERTICAL_SPACING = 150; 
-            const CONTAINER_HEIGHT = TOTAL_BIG_LEVELS * VERTICAL_SPACING + 100; 
-            mapContainer.style.height = `${CONTAINER_HEIGHT}px`;
+            const VERTICAL_SPACING_3D = 20; // Z 軸間隔
+            const HORIZONTAL_OFFSET = 10; // X 軸偏移量
+            const nodeSize = 3; 
+
+            // 定義每個大關卡的主題色 (已解鎖狀態)
+            const themeColors = {
+                1: 0x4299e1, // 藍色 (毛線球)
+                2: 0x48bb78, // 綠色 (小昆蟲)
+                3: 0xa0aec0, // 淺灰色 (老鼠)
+                4: 0xd69e2e  // 黃棕色 (打地鼠)
+            };
+            const completedColor = 0x38b2ac; // 青色 (已完成)
+            const lockedColor = 0x718096;    // 深灰色 (鎖定)
+            
+            let lastPosition = new THREE.Vector3(0, 0, 0);
 
             bigLevelKeys.forEach((big, index) => {
-                const firstLevelId = `${big}-1`;
-                const isBigLevelUnlocked = isLevelUnlocked(firstLevelId);
-                const isBigLevelCompleted = isLevelCompleted(`${big}-${levelMap[big].subLevels.length}`); 
-                
-                let levelClass = isBigLevelCompleted ? 'completed' : (isBigLevelUnlocked ? 'unlocked' : 'locked');
-                const isCurrentNext = isBigLevelUnlocked && !isBigLevelCompleted;
-                const positionIndex = (TOTAL_BIG_LEVELS - 1) - index; 
-                const top = positionIndex * VERTICAL_SPACING + 20; 
                 const isZigZagLeft = index % 2 === 0; 
-                const leftPercent = isZigZagLeft ? 20 : 80; 
-                const isLevelAccessible = isBigLevelUnlocked || isBigLevelCompleted;
+                const positionIndex = (TOTAL_BIG_LEVELS - 1) - index; 
+                
+                // 定位：X 軸左右交錯, Y 軸在島嶼上, Z 軸從後往前
+                const x = isZigZagLeft ? -HORIZONTAL_OFFSET : HORIZONTAL_OFFSET;
+                const y = 5; 
+                const z = positionIndex * VERTICAL_SPACING_3D;
+                const nodePosition = new THREE.Vector3(x, y, z);
+                
+                // 繪製路徑線
+                if (index > 0) {
+                    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x63b3ed, linewidth: 5 });
+                    const points = [];
+                    points.push(lastPosition);
+                    points.push(nodePosition);
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const line = new THREE.Line(geometry, lineMaterial);
+                    mapGroup.add(line);
+                }
+                lastPosition = nodePosition;
 
-                const nodeContent = `<div class="text-sm">第 ${big} 區</div>
-                                     <div class="text-3xl">${levelMap[big].icon}</div>
-                                     <div class="text-xs font-normal">${levelMap[big].theme}</div>`;
+                // 檢查關卡狀態
+                const isCompleted = isLevelCompleted(`${big}-${levelMap[big].subLevels.length}`);
+                const isUnlocked = isLevelUnlocked(`${big}-1`);
+                
+                // 確定節點顏色
+                let nodeColorHex;
+                if (isCompleted) {
+                    nodeColorHex = completedColor;
+                } else if (isUnlocked) {
+                    nodeColorHex = themeColors[big] || 0x4299e1; // 使用主題色
+                } else {
+                    nodeColorHex = lockedColor;
+                }
 
-                const pulseStyle = isCurrentNext ? 'animation: pulse 1s infinite alternate;' : '';
+                // 創建統一的球體幾何和材質
+                const geometry = new THREE.SphereGeometry(nodeSize * 1.5, 32, 32);
+                const material = new THREE.MeshPhongMaterial({ 
+                    color: nodeColorHex, 
+                    shininess: 50,
+                    specular: 0x555555 
+                });
+                
+                const themeMesh = new THREE.Mesh(geometry, material);
+                themeMesh.position.copy(nodePosition);
+                themeMesh.castShadow = true; 
 
-                const nodeHtml = `
-                    <div 
-                        id="big-node-${big}"
-                        class="map-node ${levelClass} transform -translate-x-1/2" 
-                        style="top: ${top}px; left: ${leftPercent}%; ${pulseStyle}"
-                        onclick="${isLevelAccessible ? `showSubLevelSelection(${big})` : ''}"
-                        title="${levelMap[big].theme} (${isLevelAccessible ? '點擊選擇關卡' : '鎖定'})"
-                    >
-                        ${nodeContent}
-                    </div>
-                `;
-                mapContainer.insertAdjacentHTML('beforeend', nodeHtml);
+                // 儲存關卡數據到 userData (用於 Raycasting 識別)
+                themeMesh.userData = { 
+                    bigLevel: big,
+                    isLevelNode: true, // 標記為可點擊節點
+                    isUnlocked: isUnlocked,
+                    isCompleted: isCompleted,
+                    isRotatable: (big === 1) // 讓毛線球 (L1) 節點仍然可以旋轉
+                };
+
+                mapGroup.add(themeMesh);
+                LEVEL_NODES_3D.push(themeMesh);
+            });
+            
+            // 將整個地圖中心移至 Z=0 (使其在螢幕中心)
+            mapGroup.position.z = -((TOTAL_BIG_LEVELS - 1) * VERTICAL_SPACING_3D) / 2;
+        }
+
+        function animateThreeScene() {
+            animationFrameId = requestAnimationFrame(animateThreeScene);
+            if (gameState !== 'MENU') return;
+
+            // 更新控制器
+            controls.update(); 
+
+            // 讓 Level 1 (毛線球) 的球體微微旋轉
+            LEVEL_NODES_3D.forEach(node => {
+                if (node.userData.isRotatable) {
+                    node.rotation.y += 0.005;
+                }
             });
 
-            setTimeout(() => {
-                const menuView = document.getElementById('menu-view');
-                if (menuView) {
-                    menuView.scrollTop = menuView.scrollHeight;
-                }
-            }, 50);
+            // 渲染
+            renderer.render(scene, camera);
+        }
 
-            if (completedLevel === 'MAX') {
-                const endTop = -10;
-                const endHtml = `
-                    <div class="map-node completed big-icon transform -translate-x-1/2"
-                         style="top: ${endTop}px; left: 50%;">
-                        <div class="text-3xl">🏆</div>
-                        <div class="text-xs">已全破</div>
-                    </div>
-                `;
-                mapContainer.insertAdjacentHTML('beforeend', endHtml);
+        function onMapNodeClick(event) {
+            if (gameState !== 'MENU') return;
+
+            event.preventDefault();
+
+            const container = document.getElementById('three-container');
+            const rect = container.getBoundingClientRect();
+            
+            // 將滑鼠座標轉換為 Three.js 的標準化設備座標 (NDC)
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            // 透過 Raycaster 檢查點擊了哪個物件 (遞迴檢查所有子物件)
+            raycaster.setFromCamera(mouse, camera);
+            
+            // 直接檢查 LEVEL_NODES_3D 數組中的 Mesh
+            const intersects = raycaster.intersectObjects(LEVEL_NODES_3D, false);
+
+            if (intersects.length > 0) {
+                const clickedObject = intersects[0].object;
+                
+                if (clickedObject.userData.isLevelNode) {
+                    const bigLevel = clickedObject.userData.bigLevel;
+                    const isUnlocked = clickedObject.userData.isUnlocked;
+
+                    if (isUnlocked) {
+                        // 如果關卡已解鎖, 顯示子關卡選單
+                        showSubLevelSelection(bigLevel);
+                    } else {
+                        // 鎖定提示
+                        console.log(`關卡 ${bigLevel} 鎖定中!`);
+                    }
+                }
             }
         }
+
+
+        // --- 遊戲介面與流程函數 (保持不變) ---
 
         function showSubLevelSelection(big) {
             const themeConfig = levelMap[big];
@@ -507,16 +650,102 @@
             document.getElementById('main-title').classList.remove('hidden');
             showOrientationWarning(false); 
 
+            // 確保只顯示選單, 並隱藏其他視圖
             document.getElementById('menu-view').classList.remove('hidden');
             document.getElementById('game-view').classList.add('hidden');
             document.getElementById('complete-view').classList.add('hidden');
             
-            document.getElementById('ad-banner-top').classList.remove('hidden');
-            document.getElementById('ad-banner-complete').classList.add('hidden');
-            hideSubLevelSelection(); 
+            hideSubLevelSelection(); // 隱藏子關卡選單
 
-            renderLevelMap(); 
+            // 啟動 3D 場景
+            if (!renderer) {
+                initThreeScene();
+            } else {
+                animateThreeScene();
+                createLevelNodes3D(); // 重新渲染節點狀態
+            }
+            handleResize();
         }
+        
+        // ** 返回當前主題關卡選單的函數 **
+        function returnToThemeLevelSelection() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            
+            gameState = 'MENU';
+            document.getElementById('game-container').classList.remove('playing');
+            document.getElementById('game-view').classList.add('hidden');
+            document.getElementById('complete-view').classList.add('hidden');
+            document.getElementById('main-title').classList.remove('hidden');
+            showOrientationWarning(false);
+
+            if (!renderer) {
+                initThreeScene();
+            } else {
+                animateThreeScene();
+                createLevelNodes3D(); 
+            }
+
+            showSubLevelSelection(currentLevel.big);
+        }
+
+
+        // ** 更新：直接開始下一關的函數 **
+        function startNextLevel() {
+            const currentId = `${currentLevel.big}-${currentLevel.sub}`;
+            const nextId = getNextLevelId(currentId);
+
+            if (nextId === 'MAX') {
+                showMenu(); 
+                return;
+            }
+
+            const [big, sub] = nextId.split('-').map(Number);
+            
+            document.getElementById('complete-view').classList.add('hidden');
+            
+            startGame(big, sub);
+        }
+
+        // ** 更新：關卡完成函數, 處理進度和按鈕顯示 **
+        function completeGame() {
+            gameState = 'COMPLETE';
+            cancelAnimationFrame(animationFrameId);
+            
+            const currentId = `${currentLevel.big}-${currentLevel.sub}`;
+            const nextId = getNextLevelId(currentId);
+            
+            let message = `您成功逗樂了所有目標物！`;
+            
+            // 1. 儲存進度
+            if (!isLevelCompleted(currentId)) {
+                saveProgress(currentId); 
+            }
+            
+            // 2. 設定按鈕和訊息
+            const nextLevelBtn = document.getElementById('next-level-btn');
+            
+            if (nextId === 'MAX') {
+                // 如果沒有下一關了
+                message = '🏆 恭喜您！所有關卡都已完成, 您是最棒的貓咪大師！ 🏆';
+                saveProgress('MAX'); 
+                nextLevelBtn.classList.add('hidden');
+            } else {
+                // 如果有下一關
+                message += ` 恭喜！您已解鎖下一關 ${nextId}！`;
+                nextLevelBtn.textContent = `下一關卡 ${nextId}`;
+                nextLevelBtn.classList.remove('hidden');
+            }
+
+            document.getElementById('completion-message').textContent = message;
+
+            // 3. 顯示完成畫面
+            document.getElementById('game-view').classList.add('hidden');
+            document.getElementById('complete-view').classList.remove('hidden');
+        }
+
+        // --- 核心遊戲元件 (Ball Class & Loop) ---
 
         function initLevel(config) {
             balls = [];
@@ -528,11 +757,11 @@
             document.getElementById('current-level-display').textContent = config.subConfig.id;
 
             for (let i = 0; i < ballCount; i++) {
-                // 如果是 1-1 關卡，強制使用最大半徑，以確保巨型球
-                let r = (config.subConfig.id === '1-1') ? maxRadius : (Math.random() * (maxRadius - minRadius) + minRadius);
+                let r = Math.random() * (maxRadius - minRadius) + minRadius;
 
                 const x = Math.random() * (canvas.width - 2 * r) + r;
                 const y = Math.random() * (canvas.height - 2 * r) + r;
+                // 速度範圍現在由 maxSpeed 決定
                 const dx = (Math.random() * maxSpeed * 2 - maxSpeed) || (Math.random() > 0.5 ? 0.5 : -0.5); 
                 const dy = (Math.random() * maxSpeed * 2 - maxSpeed) || (Math.random() > 0.5 ? 0.5 : -0.5);
                 const color = colors[i % colors.length];
@@ -547,13 +776,16 @@
                 return; 
             }
 
+            // 停止 3D 渲染循環
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
             showOrientationWarning(false); 
             
             document.getElementById('game-container').classList.add('playing');
             
             document.getElementById('main-title').classList.add('hidden');
-            document.getElementById('ad-banner-top').classList.add('hidden');
-
+            
             const themeConfig = levelMap[big];
             const subConfig = themeConfig.subLevels[sub - 1];
 
@@ -564,6 +796,7 @@
             
             hideSubLevelSelection();
 
+            // 確保只顯示遊戲畫面, 並隱藏其他視圖
             document.getElementById('menu-view').classList.add('hidden');
             document.getElementById('complete-view').classList.add('hidden');
             document.getElementById('game-view').classList.remove('hidden');
@@ -572,56 +805,6 @@
             initLevel(currentLevel.config);
             gameLoop();
         }
-
-        function completeGame() {
-            gameState = 'COMPLETE';
-            cancelAnimationFrame(animationFrameId);
-            
-            const currentId = `${currentLevel.big}-${currentLevel.sub}`;
-            
-            let message = `您成功逗樂了所有毛線球！`;
-
-            if (!isLevelCompleted(currentId)) {
-                saveProgress(currentId); 
-                const nextId = getNextLevelId(currentId);
-                
-                if (nextId === 'MAX') {
-                    message = '🏆 恭喜您！所有關卡都已完成，您是最棒的貓咪大師！ 🏆';
-                    saveProgress('MAX'); 
-                } else {
-                    message += ` 恭喜！您已解鎖下一關 ${nextId}！`;
-                }
-            } else {
-                message += ` (本關已重複挑戰成功)`;
-            }
-            
-            document.getElementById('completion-message').textContent = message;
-
-            document.getElementById('game-view').classList.add('hidden');
-            document.getElementById('complete-view').classList.remove('hidden');
-            
-            document.getElementById('ad-banner-complete').classList.remove('hidden');
-        }
-
-        function getNextLevelId(currentId) {
-            const parts = currentId.split('-').map(Number);
-            let big = parts[0];
-            let sub = parts[1];
-
-            const currentBigLevel = levelMap[big];
-            
-            if (currentBigLevel && sub < currentBigLevel.subLevels.length) {
-                sub++;
-                return `${big}-${sub}`;
-            } else if (levelMap[big + 1]) {
-                big++;
-                return `${big}-1`;
-            } else {
-                return 'MAX';
-            }
-        }
-
-        // --- 核心遊戲元件 (Ball Class & Loop) ---
 
         class Ball {
             constructor(x, y, r, dx, dy, color) {
@@ -636,22 +819,179 @@
 
             draw() {
                 if (!this.isAlive) return;
+
+                const bigLevel = currentLevel.big;
                 
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
+                // 設定陰影
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-                ctx.shadowBlur = this.r / 2;
-                ctx.fill();
-                ctx.closePath();
+                ctx.shadowBlur = this.r / 3;
+
+                if (bigLevel === 2) {
+                    // --- Insect Drawing (Theme 2: 小昆蟲主題) ---
+                    // 保持 2D 昆蟲造型不變
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    
+                    const bodyRadius = this.r * 0.8;
+                    const headRadius = this.r * 0.4;
+
+                    // Body (Oval/Circle)
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, bodyRadius, this.r, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    ctx.closePath();
+                    
+                    // Center line (Ladybug-like)
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
+                    ctx.moveTo(0, -this.r);
+                    ctx.lineTo(0, this.r);
+                    ctx.stroke();
+                    
+                    // Head (Black circle)
+                    ctx.beginPath();
+                    ctx.arc(0, -this.r * 0.8, headRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#000000';
+                    ctx.fill();
+                    ctx.closePath();
+
+                    // Eyes (White dots)
+                    const eyeRadius = headRadius * 0.2;
+                    ctx.beginPath();
+                    ctx.arc(headRadius * 0.3, -this.r * 0.9, eyeRadius, 0, Math.PI * 2);
+                    ctx.arc(-headRadius * 0.3, -this.r * 0.9, eyeRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    ctx.closePath();
+                    
+                    ctx.restore();
+                    
+                } else if (bigLevel === 3) {
+                    // --- Mouse Drawing (Theme 3: 老鼠主題) ---
+                    // 保持 2D 老鼠造型不變
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    
+                    const earRadius = this.r * 0.35;
+                    const bodyColor = this.color;
+                    const earColor = '#ffffff'; 
+                    const innerEarColor = '#f56565'; // Pink
+
+                    // Body
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.r, 0, Math.PI * 2);
+                    ctx.fillStyle = bodyColor;
+                    ctx.fill();
+                    ctx.closePath();
+                    
+                    // Ears (Circles for simplicity)
+                    const earOffsetX = this.r * 0.6;
+                    const earOffsetY = this.r * 0.6;
+
+                    // Left Outer Ear
+                    ctx.beginPath();
+                    ctx.arc(-earOffsetX, -earOffsetY, earRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = earColor;
+                    ctx.fill();
+                    
+                    // Left Inner Ear
+                    ctx.beginPath();
+                    ctx.arc(-earOffsetX, -earOffsetY, earRadius * 0.5, 0, Math.PI * 2);
+                    ctx.fillStyle = innerEarColor;
+                    ctx.fill();
+
+                    // Right Outer Ear
+                    ctx.beginPath();
+                    ctx.arc(earOffsetX, -earOffsetY, earRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = earColor;
+                    ctx.fill();
+                    
+                    // Right Inner Ear
+                    ctx.beginPath();
+                    ctx.arc(earOffsetX, -earOffsetY, earRadius * 0.5, 0, Math.PI * 2);
+                    ctx.fillStyle = innerEarColor;
+                    ctx.fill();
+
+                    // Eyes
+                    const eyeRadius = this.r * 0.1;
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(-this.r * 0.3, -this.r * 0.1, eyeRadius, 0, Math.PI * 2);
+                    ctx.arc(this.r * 0.3, -this.r * 0.1, eyeRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.restore();
+                    
+                } else if (bigLevel === 4) {
+                    // --- Mole Drawing (Theme 4: 打地鼠主題) ---
+                    // 保持 2D 地鼠造型不變
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    
+                    const headRadius = this.r;
+                    const noseRadius = this.r * 0.15;
+                    const eyeRadius = this.r * 0.1;
+
+                    // Body/Head (Brown circle)
+                    ctx.beginPath();
+                    ctx.arc(0, 0, headRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color; // 地鼠身體顏色
+                    ctx.fill();
+                    ctx.closePath();
+
+                    // Ears (Simple circles)
+                    const earSize = this.r * 0.3;
+                    ctx.fillStyle = '#69472e'; // 深棕色耳朵
+                    
+                    ctx.beginPath();
+                    ctx.arc(-headRadius * 0.6, -headRadius * 0.6, earSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+                    
+                    ctx.beginPath();
+                    ctx.arc(headRadius * 0.6, -headRadius * 0.6, earSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+
+                    // Nose (Pink)
+                    ctx.beginPath();
+                    ctx.arc(0, headRadius * 0.3, noseRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#f687b3'; // 粉紅色鼻子
+                    ctx.fill();
+                    ctx.closePath();
+
+                    // Eyes (Black)
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(-headRadius * 0.3, -headRadius * 0.1, eyeRadius, 0, Math.PI * 2);
+                    ctx.arc(headRadius * 0.3, -headRadius * 0.1, eyeRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+                    
+                    ctx.restore();
+
+                } else {
+                    // --- Yarn Ball Drawing (Theme 1: 毛線球主題) - Original Drawing ---
+                    // 保持 2D 毛線球造型不變
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    ctx.closePath();
+                    
+                    // Highlight
+                    ctx.shadowBlur = 0; // 關閉陰影以免影響高光
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.r / 3, this.y - this.r / 3, this.r / 3.5, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.fill();
+                    ctx.closePath();
+                }
                 
+                // 重置陰影
                 ctx.shadowBlur = 0; 
-                
-                ctx.beginPath();
-                ctx.arc(this.x + this.r / 3, this.y - this.r / 3, this.r / 3.5, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-                ctx.fill();
-                ctx.closePath();
             }
 
             update() {
@@ -690,11 +1030,6 @@
             animationFrameId = requestAnimationFrame(gameLoop);
         }
         
-        /**
-         * 處理滑鼠/觸摸輸入，並將螢幕座標轉換為 Canvas 座標
-         * @param {Event} event - 滑鼠或觸摸事件
-         * @param {boolean} isMove - 是否是 touchmove 事件
-         */
         function processInput(event, isMove = false) {
             if (gameState !== 'PLAYING' || needsRotation()) return; 
             
@@ -714,28 +1049,25 @@
                 const clientX = touch.clientX;
                 const clientY = touch.clientY;
 
-                // 修正：將螢幕點擊座標轉換為 Canvas 內部繪圖座標
                 const scaledClickX = (clientX - rect.left) * scaleX;
                 const scaledClickY = (clientY - rect.top) * scaleY;
 
-                // 倒序遍歷球體，以便在消除後不影響循環
                 for (let i = balls.length - 1; i >= 0; i--) {
                     const ball = balls[i];
                     if (!ball.isAlive) continue;
 
-                    // 使用轉換後的座標進行距離計算
+                    // 增加觸摸容忍度, 以適應複雜形狀和手指點擊
+                    const targetRadius = ball.r + TOUCH_TOLERANCE; 
                     const distance = Math.sqrt(
                         Math.pow(ball.x - scaledClickX, 2) + 
                         Math.pow(ball.y - scaledClickY, 2)
                     );
 
-                    // 判斷擊中 (半徑 + 容忍度)
-                    if (distance <= ball.r + TOUCH_TOLERANCE) {
+                    // 檢查距離是否在半徑範圍內
+                    if (distance <= targetRadius) {
                         ball.isAlive = false; 
                         hitOccurred = true;
-                        // 劃過時，可以一次性消除多個球，所以不使用 break
                         if (!isMove) {
-                            // 如果是單次點擊事件 (mousedown/touchstart/touchend)，則只消除一個球
                             break; 
                         }
                     }
@@ -760,7 +1092,7 @@
             }
         }
 
-        // --- 初始化與畫布調整 ---
+        // --- 初始化與畫布調整 (保持不變) ---
 
         function setupGame() {
             canvas = document.getElementById('game-canvas');
@@ -768,13 +1100,9 @@
             
             window.addEventListener('resize', handleResize);
             
-            // 處理滑鼠點擊
+            // 2D 遊戲輸入
             canvas.addEventListener('mousedown', (e) => processInput(e, false));
-            
-            // 處理觸摸點擊 (單點觸摸)
             canvas.addEventListener('touchstart', (e) => processInput(e, false), { passive: false }); 
-            
-            // 處理觸摸劃過 (拖曳)
             canvas.addEventListener('touchmove', (e) => processInput(e, true), { passive: false });
             
             loadProgress(); 
@@ -791,9 +1119,14 @@
             const availableHeight = window.innerHeight; 
             
             const uiBar = document.getElementById('game-info-bar');
-            const uiBarHeight = uiBar ? uiBar.offsetHeight + 12 : 20; 
+            const controlsBar = document.getElementById('game-controls');
 
-            const maxCanvasHeight = availableHeight - uiBarHeight;
+            // 計算 UI 欄位總高度 (上方 info-bar + 下方 controls-bar + 間距)
+            const uiHeight = (uiBar ? uiBar.offsetHeight : 0) + 
+                             (controlsBar ? controlsBar.offsetHeight : 0) + 
+                             20; // 額外間距
+            
+            const maxCanvasHeight = availableHeight - uiHeight;
             const maxCanvasWidth = availableWidth;
             
             let finalWidth;
